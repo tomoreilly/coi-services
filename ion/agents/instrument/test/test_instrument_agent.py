@@ -88,7 +88,7 @@ from mi.instrument.seabird.sbe37smb.ooicore.driver import PACKET_CONFIG
 # Real and simulated devcies we test against.
 DEV_ADDR = CFG.device.sbe37.host
 DEV_PORT = CFG.device.sbe37.port
-#DEV_ADDR = 'localhost' 
+#DEV_ADDR = 'localhost'
 #DEV_ADDR = '67.58.49.220' 
 #DEV_ADDR = '137.110.112.119' # Moxa DHCP in Edward's office.
 #DEV_ADDR = 'sbe37-simulator.oceanobservatories.org' # Simulator addr.
@@ -100,6 +100,8 @@ DEV_PORT = CFG.device.sbe37.port
 DATA_PORT = CFG.device.sbe37.port_agent_data_port
 CMD_PORT = CFG.device.sbe37.port_agent_cmd_port
 PA_BINARY = CFG.device.sbe37.port_agent_binary
+DEV_ADDR = '134.89.11.173'
+DEV_PORT = 2001
 
 # A seabird driver.
 DRV_MOD = 'mi.instrument.seabird.sbe37smb.ooicore.driver'
@@ -192,6 +194,7 @@ def start_instrument_agent_process(container, stream_config={}, resource_id=IA_R
 
 
     # Start instrument agent.
+    print "STARTING AGENT"
 
     log.debug("TestInstrumentAgent.setup(): starting IA.")
     container_client = ContainerAgentClient(node=container.node,
@@ -921,6 +924,7 @@ class TestInstrumentAgent(IonIntegrationTestCase):
         self.assertSampleDict(retval.result['parsed'])
         retval = self._ia_client.execute_resource(cmd)
         self.assertSampleDict(retval.result['parsed'])
+        print "HERE I AM: " + str(retval.result)
 
         cmd = AgentCommand(command=ResourceAgentEvent.RESET)
         retval = self._ia_client.execute_agent(cmd)
