@@ -18,6 +18,7 @@ from pyon.public import CFG
 
 # Standard imports.
 import unittest
+import telnetlib
 
 # 3rd party imports.
 from nose.plugins.attrib import attr
@@ -55,9 +56,10 @@ from mi.instrument.seabird.sbe37smb.ooicore.driver import SBE37ProtocolEvent
 # Global constants.
 ###############################################################################
 
-# Real and simulated devcies we test against.
-DEV_ADDR = CFG.device.sbe37.host
-DEV_PORT = CFG.device.sbe37.port
+# MBARI instrument Digi address and telenet port
+DEV_ADDR = '134.89.11.173'
+DEV_PORT = 2001
+
 DATA_PORT = CFG.device.sbe37.port_agent_data_port
 CMD_PORT = CFG.device.sbe37.port_agent_cmd_port
 PA_BINARY = CFG.device.sbe37.port_agent_binary
@@ -82,7 +84,13 @@ class FakePuckReader():
     """
     def read_puck(self, host, port):
         """
+        Read PUCK datasheet/payload to determine instrument driver and metadata
         """
+
+        tn = telnetlib.Telnet(host, port)
+
+        tn.close(self)
+
         puck_data = {
             'dvr_mod' : 'mi.instrument.seabird.sbe37smb.ooicore.driver',
             'dvr_cls' : 'SBE37Driver',
