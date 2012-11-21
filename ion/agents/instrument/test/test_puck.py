@@ -19,6 +19,7 @@ from pyon.public import CFG
 # Standard imports.
 import unittest
 import telnetlib
+from ion.agents.instrument.puck.digipuck import Puck
 
 # 3rd party imports.
 from nose.plugins.attrib import attr
@@ -87,9 +88,9 @@ class FakePuckReader():
         Read PUCK datasheet/payload to determine instrument driver and metadata
         """
 
-        tn = telnetlib.Telnet(host, port)
-
-        tn.close(self)
+        log.info("read_puck() - host=" + host + ", port=" + str(port))
+        puck=Puck(host, port)
+        puck.setInstrumentMode()
 
         puck_data = {
             'dvr_mod' : 'mi.instrument.seabird.sbe37smb.ooicore.driver',
@@ -212,7 +213,7 @@ class TestPuck(IonIntegrationTestCase):
             stream_config = self._stream_config
             
         puck_reader = FakePuckReader()
-        puck_data = puck_reader.read_puck(host, port)
+        puck_data = puck_reader.read_puck(DEV_ADDR, DEV_PORT)
 
         driver_config = {
             'dvr_mod' : puck_data['dvr_mod'],
