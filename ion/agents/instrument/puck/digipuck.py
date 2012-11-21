@@ -57,37 +57,33 @@ class Puck:
     # Standard baud rates
     bauds = [9600, 19200, 38400, 57600, 1200, 2400, 4800, 115200, 230400]
 
-    def __init__(self, host, port, digiLine=1, username='root', password='dbps'):
-        print "__init__"
+    def __init__(self, host, port, digiSerialLine=1, username='root', password='dbps'):
+        print "__init__: host=" + host + ", port=" + str(port) + ", digiSerialLine=" + str(digiSerialLine)
+        
         self.digiHost = host
         self.digiPort = port
-        self.digiLine = digiLine
+        self.digiSerialLine = digiSerialLine
         self.digiUser = username
         self.digiPassword = password
         socket.setdefaulttimeout(2)
-        print "create socket"
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         timeout = socket.getdefaulttimeout()
-        print "default socket timeout: " + str(timeout)
-        print 'connect socket'
+        ### print "default socket timeout: " + str(timeout) + " sec"
+        ### print 'connect socket'
         self.sock.connect((host, port))
-        print 'got socket connection'
+        print 'Connected to Digi'
         self.flushInput()
 
-        self.setPuckMode(2)
+        self.setPuckMode(1)
         self.setOffset(0)
         data = []
         n = self.read(data, 96)
-        print "data: " + str(data)
-        print "data type: " + str(type(data))
-        print "got " + str(n) + " bytes for datasheet"
-        print "len(data)=" + str(len(data))
+        ###  print "data: " + str(data)
 
         buf = ""
         for x in data[:16]:
             buf += "%02x" % ord(x)
 
-        print "buf: " + buf + ", len: " + str(len(buf))
         uid = uuid.UUID(buf)
         print "uuid: " + str(uid)
         name = ''
@@ -110,29 +106,26 @@ class Puck:
 
     # Set PUCK memory pointer
     def setOffset(self, offset):
-        print "setOffset()"
         cmd = "PUCKSA " + str(offset) + "\r"
         self.sock.sendall(cmd)
         self.readLine(timeout=READ_TIMEOUT_SEC)
 
     # Return current PUCK memory pointer 
     def getOffset(self):
-        print "getOffset()"
 
         self.sock.sendall("PUCKGA\r")
         val = self.readLine(timeout=READ_TIMEOUT_SEC)
-        print "getOffset() - val: " + val
         # Eat PUCKRDY prompt
         dummy = self.readLine(timeout=READ_TIMEOUT_SEC)
         return int(val)
 
     # Return PUCK storage size in bytes, including datasheet
     def size(self):
-        print "size()"
+        time.sleep(0.5)
         self.flushInput()
         self.sock.sendall("PUCKSZ\r")
         val = self.readLine(timeout=READ_TIMEOUT_SEC)
-        print "size()=" + val
+        ### print "size()=" + val
         # Eat PUCKRDY prompt
         dummy = self.readLine(timeout=READ_TIMEOUT_SEC)
         return int(val)
@@ -140,9 +133,8 @@ class Puck:
 
     # Put device into PUCK mode
     def setPuckMode(self, triesPerBaud):
-        print "setPuckMode()"
         for baud in self.bauds:
-            print "Set baud to ", baud
+            print "Set serial line #" + str(self.digiSerialLine) + " baud to " + str(baud)
 
             self.setDigiBaud(baud)
 
@@ -172,7 +164,6 @@ class Puck:
 
     # Get to 'PUCKRDY' prompt
     def getPuckPrompt(self, maxTries):
-        print "getPuckPrompt()"
 
         # First flush the input
         self.flushInput()
@@ -182,14 +173,14 @@ class Puck:
 
             try:
                 resp = self.readLine(timeout=READ_TIMEOUT_SEC)
-                print "getPuckPrompt() - resp: " + resp
+                ### print "getPuckPrompt() - resp: " + resp
                 if resp.startswith('PUCKRDY') :
                     print "Got PUCK prompt"
                     return True
                 else:
                     print "Didn't get PUCK prompt"
             except:
-                print 'getPuckPrompt() timed out'
+                print 'No PUCK response'
                 pass
 
         return False
@@ -198,7 +189,7 @@ class Puck:
     # Read requested number of bytes, starting at current PUCK pointer
     # offset. Returns number of bytes actually read
     def read(self, payload, nRequested):
-        print "read()"
+        ### print "read()"
         # If number of requested bytes exceeds what is actually available
         # given current pointer offset, then downsize the request
         nRequested = min(nRequested, self.size() - self.getOffset())
@@ -213,13 +204,12 @@ class Puck:
             cmd = "PUCKRM " + str(nGet) + "\r"
             self.sock.sendall(cmd)
 
-            print("Look for response start, marked by open bracket '['")
+            ### print("Look for response start, marked by open bracket '['")
             nGot = 0
             found = False
             while nGot < 100 :
                 c = self.sock.recv(1, socket.MSG_WAITALL)
                 nGot += 1
-                print "nGot=" + str(nGot) + ", c=" + c
                 if c == '[' :
                     found = True
                     break
@@ -235,9 +225,7 @@ class Puck:
                 bytes = self.sock.recv(nGet-nGot)
                 nGot += len(bytes)
                 nTotalRead += len(bytes)
-                print "read(): len(bytes)=" + str(len(bytes))
                 payload += bytes;
-                print "read(): len(payload)=" + str(len(payload))
 
             nRemaining -= nGot
 
@@ -248,11 +236,12 @@ class Puck:
 
 
     def flushInput(self):
-        print 'flushInput()'
+        ### print 'flushInput()'
         try:
             self.sock.recv(4096)
         except:
-            print "flushInput(): timed out"
+            pass
+            ### print "flushInput(): timed out"
 
     def setDigiBaud(self, baud):
         """
@@ -263,14 +252,13 @@ class Puck:
         tn.write(self.digiUser + "\n")
         tn.read_until("password: ")
         tn.write(self.digiPassword + "\n");
-        cmd = "set line range=" + str(self.digiLine) + " baud=" + str(baud) + "\n"
-        print "setDigiBaud() - cmd: " + cmd
-
+        cmd = "set line range=" + str(self.digiSerialLine) + " baud=" + str(baud) + "\n"
         tn.write(cmd)
         tn.write("show line\n")
         tn.write("exit\n")
 
-        print "telnet response: " + tn.read_all()
+        resp = tn.read_all()
+        ### print 'telnet response: ' + resp
 
         tn.close()
 
@@ -280,7 +268,6 @@ class Puck:
         eol = '\r'
         line = ''
         start = time.clock()
-        print 'readLine()'
         while 1:
 
             c = self.sock.recv(1)
@@ -293,7 +280,7 @@ class Puck:
             pos = line.find(eol)
 
             if pos >= 0:
-                print 'readLine() - done: %r' % line
+                ### print 'readLine() - done: %r' % line
                 return line
 
 
@@ -325,6 +312,15 @@ class Datasheet :
 
     
 if __name__ == "__main__":
+    import argparse
     import digipuck
-    puck=digipuck.Puck("134.89.11.173", 2001)
+###    print 'Got ' + str(len(sys.argv)-1) + ' args: ' + str(sys.argv[1:])
+
+    parser = argparse.ArgumentParser(description='Get PUCK data via Digi adapter')
+    parser.add_argument('host', type=str, help='Digi host address')
+    parser.add_argument('port', type=int, help='Instrument telnet port')
+    parser.add_argument('line', type=int, help='Instrument serial port')
+    args = parser.parse_args()
+
+    puck=digipuck.Puck(args.host, args.port, args.line)
 

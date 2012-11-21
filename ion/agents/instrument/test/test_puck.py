@@ -60,6 +60,7 @@ from mi.instrument.seabird.sbe37smb.ooicore.driver import SBE37ProtocolEvent
 # MBARI instrument Digi address and telenet port
 DEV_ADDR = '134.89.11.173'
 DEV_PORT = 2001
+DEV_SERIAL_LINE = 1
 
 DATA_PORT = CFG.device.sbe37.port_agent_data_port
 CMD_PORT = CFG.device.sbe37.port_agent_cmd_port
@@ -213,7 +214,7 @@ class TestPuck(IonIntegrationTestCase):
             stream_config = self._stream_config
             
         puck_reader = FakePuckReader()
-        puck_data = puck_reader.read_puck(DEV_ADDR, DEV_PORT)
+        puck_data = puck_reader.read_puck(DEV_ADDR, DEV_PORT, DEV_SERIAL_LINE)
 
         driver_config = {
             'dvr_mod' : puck_data['dvr_mod'],
