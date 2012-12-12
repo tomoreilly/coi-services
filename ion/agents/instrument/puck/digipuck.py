@@ -69,7 +69,7 @@ class Puck:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         timeout = socket.getdefaulttimeout()
         ### print "default socket timeout: " + str(timeout) + " sec"
-        ### print 'connect socket'
+        print 'connect socket'
         self.sock.connect((host, port))
         print 'Connected to Digi'
         self.flushInput()
@@ -80,22 +80,11 @@ class Puck:
         n = self.read(data, 96)
         ###  print "data: " + str(data)
 
-        buf = ""
-        for x in data[:16]:
-            buf += "%02x" % ord(x)
+        print 'create datasheet'
+        self.datasheet = Datasheet(data)
+        self.datasheet.printMe()
 
-        uid = uuid.UUID(buf)
-        print "uuid: " + str(uid)
-        name = ''
-        print "name: " + name.join(data[32:])
-        print "datasheet ver: " + str(bytesToShort(data, 16))
-        datasheetSize = bytesToShort(data, 18);
-        print "datasheet size: " + str(datasheetSize)
-        print "mfctr ID: " + str(bytesToInt(data, 20))
-        print "mfctr model: " + str(bytesToShort(data, 24))
-        print "mfctr ver: " + str(bytesToShort(data, 26))
-        print "serial number: " + str(bytesToInt(data, 28))
-        print "payload size: " + str(self.size() - datasheetSize)
+        print "payload size: " + str(self.size() - self.datasheet.datasheetSize) + " bytes"       
 
 
     # End PUCK write session; no other write() calls should be attempted
@@ -301,12 +290,32 @@ def isascii(c):
 class Datasheet :
     def __init__(self, bytes):
         self.bytes = bytes
+        buf = ""
+        for x in bytes[:16]:
+            buf += "%02x" % ord(x)
 
+        self.uuid = uuid.UUID(buf)
+        name = ''
+        self.name = name.join(bytes[32:])
+        self.datasheetVersion = bytesToShort(bytes, 16)
+        self.datasheetSize = bytesToShort(bytes, 18);
+        self.mfctrId = bytesToInt(bytes, 20)
+        self.mfctrModel = bytesToShort(bytes, 24)
+        self.mfctrVersion = bytesToShort(bytes, 26)
+        self.serialNumber = bytesToInt(bytes, 28)
+
+    def printMe(self):
+        print "uuid: " + str(self.uuid)
+        print "name: " + self.name
+        print "datasheet version: " + str(self.datasheetVersion)
+        print "datasheet size: " + str(self.datasheetSize) + " bytes"
+        print "mfctr ID: " + str(self.mfctrId)
+        print "model ID: " + str(self.mfctrModel)
+        print "model version: " + str(self.mfctrVersion)
+        print "serial no: " + str(self.serialNumber)
 
     def toString() :
         pass
-
-
 
 
 
@@ -324,3 +333,5 @@ if __name__ == "__main__":
 
     puck=digipuck.Puck(args.host, args.port, args.line)
 
+
+    print 'In main - PUCK uuid: ' + str(puck.datasheet.uuid)
