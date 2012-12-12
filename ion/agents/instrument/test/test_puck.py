@@ -49,6 +49,9 @@ from interface.services.dm.idataset_management_service import DatasetManagementS
 from mi.instrument.seabird.sbe37smb.ooicore.driver import SBE37Parameter
 from mi.instrument.seabird.sbe37smb.ooicore.driver import SBE37ProtocolEvent
 
+from mi.instrument.nortek.aquadopp.ooicore.driver import Parameter
+from mi.instrument.nortek.aquadopp.ooicore.driver import ProtocolEvent
+
 # TODO chagne the path following the refactor.
 # bin/nosetests -s -v --nologcapture ion/agents/instrument/test/test_puck.py:TestPuck
 # bin/nosetests -s -v --nologcapture ion/agents/instrument/test/test_puck.py:TestPuck.test_xxx
@@ -57,18 +60,23 @@ from mi.instrument.seabird.sbe37smb.ooicore.driver import SBE37ProtocolEvent
 # Global constants.
 ###############################################################################
 
+# Create dummy instrument registry, with PUCK UUID and corresponding driver class
+instrumentRegistry = {'a7c7f011-b481-11da-a94d-0800200c9a66':('mi.instrument.seabird.sbe37smb.ooicore.driver', 'SBE37Driver'),
+                      '6948ae30-b399-11da-a94d-0800200c9a66':('mi.instrument.nortek.aquadopp.ooicore.driver', 'InstrumentDriver')}
+
+
 # MBARI instrument Digi address and telenet port
 DEV_ADDR = '134.89.11.173'
-DEV_PORT = 2001
-DEV_SERIAL_LINE = 1
+DEV_PORT = 2002
+DEV_SERIAL_LINE = 2
 
 DATA_PORT = CFG.device.sbe37.port_agent_data_port
 CMD_PORT = CFG.device.sbe37.port_agent_cmd_port
 PA_BINARY = CFG.device.sbe37.port_agent_binary
 
 # A seabird driver. These get set by the puck reader.
-DRV_MOD = '' #'mi.instrument.seabird.sbe37smb.ooicore.driver'
-DRV_CLS = '' #'SBE37Driver'
+DRV_MOD = ''
+DRV_CLS = ''
 
 # Work dir and logger delimiter.
 WORK_DIR = '/tmp/'
@@ -84,23 +92,35 @@ IA_CLS = 'InstrumentAgent'
 class FakePuckReader():
     """
     """
-    def read_puck(self, host, port):
+    def read_puck(self, host, port, serialLine):
         """
         Read PUCK datasheet/payload to determine instrument driver and metadata
         """
 
-        log.info("read_puck() - host=" + host + ", port=" + str(port))
-        puck=Puck(host, port)
+        log.info("read_puck() - host=" + host + ", port=" + str(port) + ", serialLine=" + str(serialLine))
+        puck = Puck(host, port, serialLine)
+        log.info("finished reading PUCK. PUCK datasheet: ")
+        log.info(puck.datasheet.printMe())
         puck.setInstrumentMode()
 
-        puck_data = {
-            'dvr_mod' : 'mi.instrument.seabird.sbe37smb.ooicore.driver',
-            'dvr_cls' : 'SBE37Driver',
-            'serial_no' : '12345',
-            'manufacturer' : 'Seabird Electronics',
-            'model' : 'SBE37-SMP'
-        }
-        return puck_data
+        # Look up instrument driver module and class based on PUCK UUID
+        try :
+            entry = instrumentRegistry[str(puck.datasheet.uuid)]
+            print 'Instrument ' + str(puck.datasheet.uuid) + ': ' + str(entry)
+            print 'driver module: ' + entry[0]
+            print 'driver class: ' + entry[1]
+            puck_data = {
+               'dvr_mod' : entry[0],
+               'dvr_cls' : entry[1],
+                'serial_no' : str(puck.datasheet.serialNumber),
+                'manufacturer' : 'MANUFACTURER GOES HERE',
+                'model' : 'MODEL GOES HERE'
+            }
+            return puck_data
+        except KeyError:
+            log.error('Instrument ' + str(puck.datasheet.uuid) + ' not found in registry')
+            return None
+
 
 class FakeProcess(LocalContextMixin):
     """
@@ -212,8 +232,10 @@ class TestPuck(IonIntegrationTestCase):
         
         if not stream_config:
             stream_config = self._stream_config
-            
+
+        log.info("create FakePuckReader")
         puck_reader = FakePuckReader()
+        log.info("read_puck()")
         puck_data = puck_reader.read_puck(DEV_ADDR, DEV_PORT, DEV_SERIAL_LINE)
 
         driver_config = {
